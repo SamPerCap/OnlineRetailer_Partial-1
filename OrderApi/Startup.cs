@@ -12,12 +12,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OrderApi.Data;
+using OrderApi.Infrastructure;
 using OrderApi.Models;
 
 namespace OrderApi
 {
     public class Startup
     {
+        readonly string cloudAMQPConnectionString = "host=hawk.rmq.cloudamqp.com;virtualHost=embszgpu;username=embszgpu;password=Maer_MLg3Ib4341CdUnICTys6OBO53Lq";
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -32,7 +34,7 @@ namespace OrderApi
             services.AddDbContext<OrderApiContext>(opt => opt.UseInMemoryDatabase("OrdersDb"));
 
             // Register repositories for dependency injection
-            services.AddScoped<IRepository<Order>, OrderRepository>();
+            services.AddScoped<IRepository<HiddenOrder>, OrderRepository>();
 
             // Register database initializer for dependency injection
             services.AddTransient<IDbInitializer, DbInitializer>();
@@ -43,6 +45,8 @@ namespace OrderApi
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            Task.Factory.StartNew(() => new MessagePublisher(app.ApplicationServices, cloudAMQPConnectionString).Start());
+            Task.Factory.StartNew(() => new MessageListener(app.ApplicationServices, cloudAMQPConnectionString).Start());
             // Initialize the database
             using (var scope = app.ApplicationServices.CreateScope())
             {

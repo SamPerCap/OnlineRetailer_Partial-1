@@ -25,7 +25,7 @@ namespace CustomerApi.Data
             db.SaveChanges();
         }
 
-        public HiddenCustomer Get(int id)
+        public HiddenCustomer Get(int? id)
         {
             return db.Customers.FirstOrDefault(c => c.Id == id);
         }

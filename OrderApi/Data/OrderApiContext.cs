@@ -10,6 +10,6 @@ namespace OrderApi.Data
         {
         }
 
-        public DbSet<Order> Orders { get; set; }
+        public DbSet<HiddenOrder> Orders { get; set; }
     }
 }
