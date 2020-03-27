@@ -9,6 +9,7 @@ namespace OrderApi.Infrastructure
     {
         private IServiceProvider applicationServices;
         private string cloudAMQPConnectionString;
+        IBus bus;
 
         public MessagePublisher(IServiceProvider applicationServices, string cloudAMQPConnectionString)
         {
@@ -18,22 +19,16 @@ namespace OrderApi.Infrastructure
 
         public void Start()
         {
-            using (IBus bus = RabbitHutch.CreateBus(cloudAMQPConnectionString))
-            {
-                bus.Publish(new SharedOrderLine
-                {
-
-                });
-            }
+           // using (bus = RabbitHutch.CreateBus(cloudAMQPConnectionString))
         }
         public void Dispose()
         {
-            throw new NotImplementedException();
+            bus.Dispose();
         }
 
         public void PublishCustomerExists(HiddenOrder order)
         {
-            using (IBus bus = RabbitHutch.CreateBus(cloudAMQPConnectionString))
+            using (bus = RabbitHutch.CreateBus(cloudAMQPConnectionString))
             {
                 bus.Publish(new SharedCustomer
                 {

@@ -1,9 +1,11 @@
 ﻿using CustomerApi.Data;
 using CustomerApi.HiddenModel;
 using EasyNetQ;
+using Microsoft.Extensions.DependencyInjection;
 using RestSharp;
 using SharedModels;
 using System;
+using System.Threading;
 
 namespace CustomerApi.Infrastructure
 {
@@ -11,10 +13,13 @@ namespace CustomerApi.Infrastructure
     {
         IServiceProvider provider;
         string connectionString;
-        public MessageListener(IServiceProvider provider, string connectionString)
+        readonly IMessagePublisher messagePublisher;
+
+        public MessageListener(IServiceProvider provider, string connectionString, IMessagePublisher messagePublisher)
         {
             this.provider = provider;
             this.connectionString = connectionString;
+            this.messagePublisher = messagePublisher;
         }
 
         public void Start()
@@ -22,23 +27,33 @@ namespace CustomerApi.Infrastructure
             using (IBus bus = RabbitHutch.CreateBus(connectionString))
             {
                 bus.Subscribe<SharedCustomer>("OrderPublisherCustomerApi", message => HandleCustomerReply(message));
+
+                lock (this)
+                {
+                    Monitor.Wait(this);
+                }
             }
         }
 
         private void HandleCustomerReply(SharedCustomer customer)
         {
-            RestClient c = new RestClient();
-
-            c.BaseUrl = new Uri("https://localhost:5001/products");
-            RestRequest request = new RestRequest(customer.Id.ToString(), Method.GET);
-            IRestResponse<HiddenCustomer> response = c.Execute<HiddenCustomer>(request);
-            HiddenCustomer getCustomer = response.Data;
-
-            if(getCustomer.Id == null || getCustomer.Id < 1)
+            using (var scope = provider.CreateScope())
             {
-                //Use MessagePublisher to publish a message in the bus and receive it in the order api
+                var services = scope.ServiceProvider;
+                var customerRepo = services.GetService<IRepository<SharedCustomer>>();
+
+                var getCustomer = customerRepo.Get(customer.Id);
+                messagePublisher.ResponseCustomerExists(new HiddenCustomer
+                {
+                    Id = getCustomer.Id
+                });
+                /*RestClient c = new RestClient();
+                c.BaseUrl = new Uri("https://localhost:5001/products");
+                RestRequest request = new RestRequest(customer.Id.ToString(), Method.GET);
+                IRestResponse<HiddenCustomer> response = c.Execute<HiddenCustomer>(request);
+                HiddenCustomer getCustomer = response.Data;
+                messagePublisher.ResponseCustomerExists(getCustomer);*/
             }
-            
         }
     }
 }

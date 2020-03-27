@@ -14,11 +14,13 @@ namespace OrderApi.Controllers
     {
         private readonly IRepository<HiddenOrder> repository;
         private readonly IMessagePublisher messagePublisher;
+        private readonly IMessageListener messageListener;
 
-        public OrdersController(IRepository<HiddenOrder> repos, IMessagePublisher publisher)
+        public OrdersController(IRepository<HiddenOrder> repos, IMessagePublisher publisher, IMessageListener listener)
         {
             repository = repos;
             messagePublisher = publisher;
+            messageListener = listener;
         }
 
         // GET: orders
@@ -48,18 +50,20 @@ namespace OrderApi.Controllers
             {
                 return BadRequest();
             }
-            else
+
+            if (CustomerExists(order))
             {
-                CustomerExists(order);
+                return Ok();
             }
 
         }
 
-        private void CustomerExists(HiddenOrder order)
+        private bool CustomerExists(HiddenOrder order)
         {
             try
             {
                 messagePublisher.PublishCustomerExists(order);
+                return messageListener.HandleCustomerExistResponse();
             }
             catch (Exception e)
             {
